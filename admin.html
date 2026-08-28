@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RifaPop • Painel do Administrador</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">🎮</div><div><strong>RifaPop</strong><small>PAINEL DO ADMINISTRADOR</small></div></div>
+  <button id="logout" class="ghost">Sair</button>
+</header>
+
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="logo big">🔐</div>
+    <h1>Acesso administrativo</h1>
+    <p>Entre para gerenciar os números da RifaPop.</p>
+    <label>E-mail do administrador<input id="adminEmail" type="email" placeholder="seuemail@gmail.com"></label>
+    <label>Senha<input id="password" type="password" placeholder="Digite a senha"></label>
+    <button id="loginBtn" class="primary full">Entrar</button>
+    <small class="hint">Use o e-mail e a senha de um usuário criado no Supabase Auth.</small>
+  </div>
+</div>
+
+<main id="panel" class="hidden">
+  <section class="stats">
+    <div class="stat"><span>🎟️ Total</span><strong>1.000</strong></div>
+    <div class="stat"><span>🟢 Disponíveis</span><strong id="available">0</strong></div>
+    <div class="stat"><span>🟠 Reservados</span><strong id="reserved">0</strong></div>
+    <div class="stat"><span>💰 Arrecadado</span><strong id="revenue">R$ 0,00</strong></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><div><h2>Controle dos números</h2><p>Clique nos números para alterar o status.</p></div>
+      <div class="actions"><button id="reserveSelected" class="secondary">Reservar selecionados</button><button id="releaseSelected" class="ghost">Liberar selecionados</button></div>
+    </div>
+    <div class="filters">
+      <input id="search" placeholder="🔎 Buscar número, nome ou WhatsApp">
+      <select id="filter"><option value="all">Todos</option><option value="available">Disponíveis</option><option value="reserved">Reservados</option><option value="paid">Pagos</option></select>
+    </div>
+    <div id="numbers" class="numbers"></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title"><div><h2>Compradores / reservas</h2><p>Registros sincronizados online.</p></div><button id="export" class="secondary">Exportar CSV</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Números</th><th>Nome</th><th>WhatsApp</th><th>Total</th><th>Status</th><th>Ação</th></tr></thead><tbody id="buyers"></tbody></table></div>
+  </section>
+
+  <section class="card settings">
+    <h2>Configurações</h2>
+    <div class="grid">
+      <label>Chave PIX<input id="pix" placeholder="Sua chave PIX"></label>
+      <label>WhatsApp (somente números)<input id="wa" placeholder="5573981786318"></label>
+    </div>
+    <button id="saveSettings" class="primary">Salvar configurações</button>
+    <span id="saved" class="saved"></span>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
