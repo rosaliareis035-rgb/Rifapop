@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://rosaliareis035-rgb.github.io/Rifapop/sitemap.xml
