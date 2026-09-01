@@ -16,11 +16,25 @@ const pixKeyEl = document.getElementById('pixKey');
 const selected = new Set();
 let statuses = new Map();
 
+function addWinnerPanel(){
+  if(document.getElementById('rifapop-winner-panel')) return;
+  const style=document.createElement('style');
+  style.textContent=`#rifapop-winner-panel{margin:28px auto 10px;max-width:900px;padding:2px 18px}.winner-box{background:linear-gradient(145deg,#171025,#0d0d14);border:1px solid #7c35ff;border-radius:24px;padding:28px 20px;text-align:center;box-shadow:0 0 35px rgba(124,53,255,.18)}.winner-label{display:inline-block;color:#d6b7ff;font-weight:800;font-size:13px;letter-spacing:1.5px;margin-bottom:10px}.winner-box h2{margin:5px 0 10px;font-size:30px;color:#fff}.winner-message{color:#c9c4d2;font-size:17px}.winner-number{display:inline-block;margin:16px 0;padding:12px 22px;border-radius:14px;background:#7c35ff;color:#fff;font-size:25px;font-weight:900}.winner-date{display:block;color:#9691a0;margin:5px 0 16px}.winner-share{border:0;border-radius:12px;padding:12px 18px;background:#fff;color:#16131d;font-weight:800;font-size:15px}.winner-hidden{display:none}`;
+  document.head.appendChild(style);
+  const panel=document.createElement('section'); panel.id='rifapop-winner-panel';
+  panel.innerHTML=`<div class="winner-box"><span class="winner-label">🏆 RESULTADO DO SORTEIO</span><h2 id="winner-title">Resultado ainda não publicado</h2><div id="winner-message" class="winner-message">O resultado será divulgado aqui assim que o sorteio for realizado.</div><div id="winner-number" class="winner-number winner-hidden"></div><span id="winner-date" class="winner-date"></span><button id="winner-share" class="winner-share winner-hidden">📲 Compartilhar resultado</button></div>`;
+  const main=document.querySelector('main'); const hero=document.querySelector('.hero');
+  if(main&&hero) main.insertBefore(panel,hero.nextSibling); else if(main) main.prepend(panel);
+  document.getElementById('winner-share').onclick=async()=>{const text=document.getElementById('winner-message').textContent+' '+document.getElementById('winner-number').textContent;if(navigator.share){try{await navigator.share({title:'Resultado RifaPop',text,url:location.href})}catch(e){}}else{await navigator.clipboard.writeText(location.href);alert('Link do resultado copiado!')}};
+}
+async function loadWinner(){
+  try{const r=await fetch('winner.json?v='+Date.now(),{cache:'no-store'});const w=await r.json();if(!w.published)return;document.getElementById('winner-title').textContent='🎉 Temos um ganhador!';document.getElementById('winner-message').textContent=w.name?`Parabéns, ${w.name}!`:'Parabéns ao ganhador!';if(w.number){const n=document.getElementById('winner-number');n.textContent=`Número sorteado: ${w.number}`;n.classList.remove('winner-hidden')}if(w.date)document.getElementById('winner-date').textContent=`Sorteio realizado em ${w.date}`;document.getElementById('winner-share').classList.remove('winner-hidden')}catch(e){console.warn('Resultado ainda não disponível.',e)}
+}
+
 async function init(){
-  if (!window.RIFAPOP_SUPABASE_URL || window.RIFAPOP_SUPABASE_URL.includes('COLE_AQUI')) {
-    alert('Configure o Supabase no arquivo supabase-config.js antes de publicar.');
-    return;
-  }
+  addWinnerPanel();
+  loadWinner();
+  if (!window.RIFAPOP_SUPABASE_URL || window.RIFAPOP_SUPABASE_URL.includes('COLE_AQUI')) { alert('Configure o Supabase no arquivo supabase-config.js antes de publicar.'); return; }
   const { data: settings } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers').eq('id',true).single();
   if(settings){ PIX=settings.pix||PIX; WHATSAPP=(settings.whatsapp||WHATSAPP).replace(/\D/g,''); pixKeyEl.textContent=PIX; }
   await loadNumbers();
@@ -37,8 +51,7 @@ function renderNumbers(){
   for(let i=1;i<=TOTAL;i++){
     const b=document.createElement('button'); b.className='number'; b.textContent=String(i).padStart(3,'0'); b.setAttribute('aria-label',`Número ${i}`);
     const s=statuses.get(i)||'available';
-    if(s!=='available'){b.classList.add('reserved');b.disabled=true;}
-    else if(selected.has(i)) b.classList.add('selected');
+    if(s!=='available'){b.classList.add('reserved');b.disabled=true;} else if(selected.has(i)) b.classList.add('selected');
     b.addEventListener('click',()=>toggle(i,b)); numbersEl.appendChild(b);
   }
   update();
