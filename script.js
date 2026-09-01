@@ -1,5 +1,6 @@
 const PRICE = 10;
 const TOTAL = 1000;
+const RESERVATION_MINUTES = 30;
 let WHATSAPP = '5573981602717';
 let PIX = '73981602717';
 
@@ -34,33 +35,35 @@ async function loadWinner(){
 
 function addNumbersLegend(){
   if(document.getElementById('rifapop-numbers-legend')) return;
-  const legend=document.createElement('div');
-  legend.id='rifapop-numbers-legend';
-  legend.className='legend';
+  const legend=document.createElement('div'); legend.id='rifapop-numbers-legend'; legend.className='legend';
   legend.innerHTML=`<span><i style="background:#151821"></i>Disponível</span><span><i style="background:#8b2cff"></i>Selecionado</span><span><i style="background:#363a45"></i>Já comprado / indisponível</span>`;
-  const numbersSection=document.querySelector('.numbers-section');
-  const sectionHead=numbersSection?.querySelector('.section-head');
-  if(sectionHead) sectionHead.appendChild(legend);
-  else if(numbersSection) numbersSection.prepend(legend);
+  const numbersSection=document.querySelector('.numbers-section'); const sectionHead=numbersSection?.querySelector('.section-head');
+  if(sectionHead) sectionHead.appendChild(legend); else if(numbersSection) numbersSection.prepend(legend);
+}
+
+async function releaseExpiredReservations(){
+  try{
+    const {data,error}=await supabaseClient.rpc('release_expired_reservations');
+    if(error) console.warn('Expiração automática ainda não configurada no Supabase.',error);
+    if(data>0) await loadNumbers();
+  }catch(e){console.warn('Não foi possível verificar reservas vencidas.',e)}
 }
 
 async function init(){
-  addWinnerPanel();
-  loadWinner();
-  addNumbersLegend();
+  addWinnerPanel(); loadWinner(); addNumbersLegend();
   if (!window.RIFAPOP_SUPABASE_URL || window.RIFAPOP_SUPABASE_URL.includes('COLE_AQUI')) { alert('Configure o Supabase no arquivo supabase-config.js antes de publicar.'); return; }
-  const { data: settings } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers').eq('id',true).single();
+  const { data: settings } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers,reservation_minutes').eq('id',true).single();
   if(settings){ PIX=settings.pix||PIX; WHATSAPP=(settings.whatsapp||WHATSAPP).replace(/\D/g,''); pixKeyEl.textContent=PIX; }
+  await releaseExpiredReservations();
   await loadNumbers();
   supabaseClient.channel('rifapop-live').on('postgres_changes',{event:'*',schema:'public',table:'rifa_numbers'},()=>loadNumbers()).subscribe();
-  setInterval(loadNumbers,10000);
+  setInterval(async()=>{ await releaseExpiredReservations(); await loadNumbers(); },10000);
 }
 
 async function loadNumbers(){
   const {data,error}=await supabaseClient.from('rifa_numbers').select('number,status').order('number');
   if(error){console.error(error); return;}
-  statuses=new Map(data.map(x=>[x.number,x.status]));
-  renderNumbers();
+  statuses=new Map(data.map(x=>[x.number,x.status])); renderNumbers();
 }
 
 function renderNumbers(){
@@ -68,7 +71,7 @@ function renderNumbers(){
   for(let i=1;i<=TOTAL;i++){
     const b=document.createElement('button'); b.className='number'; b.textContent=String(i).padStart(3,'0'); b.setAttribute('aria-label',`Número ${i}`);
     const s=statuses.get(i)||'available';
-    if(s!=='available'){b.classList.add('reserved');b.disabled=true;b.title='Número já comprado ou indisponível';}
+    if(s!=='available'){b.classList.add('reserved');b.disabled=true;b.title=s==='reserved'?'Reservado — aguardando pagamento':'Número já pago ou indisponível';}
     else if(selected.has(i)) b.classList.add('selected');
     b.addEventListener('click',()=>toggle(i,b)); numbersEl.appendChild(b);
   }
@@ -90,7 +93,7 @@ document.getElementById('whatsapp').addEventListener('click',async()=>{
   if(error){alert('Não foi possível reservar agora. Tente novamente.');console.error(error);btn.disabled=false;btn.textContent='Enviar reserva pelo WhatsApp';return;}
   if(!data.ok){alert(`Alguns números já foram reservados: ${data.unavailable.map(n=>String(n).padStart(3,'0')).join(', ')}. Atualizamos a lista.`);await loadNumbers();btn.disabled=false;btn.textContent='Enviar reserva pelo WhatsApp';return;}
   const total=(nums.length*PRICE).toFixed(2).replace('.',',');
-  const message=`Olá, RifaPop! Minha reserva foi registrada. Números: ${nums.map(n=>String(n).padStart(3,'0')).join(', ')}. Total: R$ ${total}. Nome: ${name}. WhatsApp: ${phone}. Vou enviar o comprovante do PIX.`;
+  const message=`Olá, RifaPop! Minha reserva foi registrada. Números: ${nums.map(n=>String(n).padStart(3,'0')).join(', ')}. Total: R$ ${total}. Nome: ${name}. WhatsApp: ${phone}. Você tem ${RESERVATION_MINUTES} minutos para enviar o comprovante do PIX; após esse prazo, a reserva será liberada automaticamente.`;
   selected.clear(); await loadNumbers(); update(); checkout.classList.add('hidden');
   window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`,'_blank');
   btn.disabled=false; btn.textContent='Enviar reserva pelo WhatsApp';
