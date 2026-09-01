@@ -27,35 +27,54 @@ function addWinnerPanel(){
   if(main&&hero) main.insertBefore(panel,hero.nextSibling); else if(main) main.prepend(panel);
   document.getElementById('winner-share').onclick=async()=>{const text=document.getElementById('winner-message').textContent+' '+document.getElementById('winner-number').textContent;if(navigator.share){try{await navigator.share({title:'Resultado RifaPop',text,url:location.href})}catch(e){}}else{await navigator.clipboard.writeText(location.href);alert('Link do resultado copiado!')}};
 }
+
 async function loadWinner(){
   try{const r=await fetch('winner.json?v='+Date.now(),{cache:'no-store'});const w=await r.json();if(!w.published)return;document.getElementById('winner-title').textContent='🎉 Temos um ganhador!';document.getElementById('winner-message').textContent=w.name?`Parabéns, ${w.name}!`:'Parabéns ao ganhador!';if(w.number){const n=document.getElementById('winner-number');n.textContent=`Número sorteado: ${w.number}`;n.classList.remove('winner-hidden')}if(w.date)document.getElementById('winner-date').textContent=`Sorteio realizado em ${w.date}`;document.getElementById('winner-share').classList.remove('winner-hidden')}catch(e){console.warn('Resultado ainda não disponível.',e)}
+}
+
+function addNumbersLegend(){
+  if(document.getElementById('rifapop-numbers-legend')) return;
+  const legend=document.createElement('div');
+  legend.id='rifapop-numbers-legend';
+  legend.className='legend';
+  legend.innerHTML=`<span><i style="background:#151821"></i>Disponível</span><span><i style="background:#8b2cff"></i>Selecionado</span><span><i style="background:#363a45"></i>Já comprado / indisponível</span>`;
+  const numbersSection=document.querySelector('.numbers-section');
+  const sectionHead=numbersSection?.querySelector('.section-head');
+  if(sectionHead) sectionHead.appendChild(legend);
+  else if(numbersSection) numbersSection.prepend(legend);
 }
 
 async function init(){
   addWinnerPanel();
   loadWinner();
+  addNumbersLegend();
   if (!window.RIFAPOP_SUPABASE_URL || window.RIFAPOP_SUPABASE_URL.includes('COLE_AQUI')) { alert('Configure o Supabase no arquivo supabase-config.js antes de publicar.'); return; }
   const { data: settings } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers').eq('id',true).single();
   if(settings){ PIX=settings.pix||PIX; WHATSAPP=(settings.whatsapp||WHATSAPP).replace(/\D/g,''); pixKeyEl.textContent=PIX; }
   await loadNumbers();
   supabaseClient.channel('rifapop-live').on('postgres_changes',{event:'*',schema:'public',table:'rifa_numbers'},()=>loadNumbers()).subscribe();
+  setInterval(loadNumbers,10000);
 }
+
 async function loadNumbers(){
   const {data,error}=await supabaseClient.from('rifa_numbers').select('number,status').order('number');
   if(error){console.error(error); return;}
   statuses=new Map(data.map(x=>[x.number,x.status]));
   renderNumbers();
 }
+
 function renderNumbers(){
   numbersEl.innerHTML='';
   for(let i=1;i<=TOTAL;i++){
     const b=document.createElement('button'); b.className='number'; b.textContent=String(i).padStart(3,'0'); b.setAttribute('aria-label',`Número ${i}`);
     const s=statuses.get(i)||'available';
-    if(s!=='available'){b.classList.add('reserved');b.disabled=true;} else if(selected.has(i)) b.classList.add('selected');
+    if(s!=='available'){b.classList.add('reserved');b.disabled=true;b.title='Número já comprado ou indisponível';}
+    else if(selected.has(i)) b.classList.add('selected');
     b.addEventListener('click',()=>toggle(i,b)); numbersEl.appendChild(b);
   }
   update();
 }
+
 function toggle(n,el){ if(selected.has(n)){selected.delete(n);el.classList.remove('selected')} else {selected.add(n);el.classList.add('selected')} update(); }
 function update(){const count=selected.size;countEl.textContent=count;totalEl.textContent=`R$ ${(count*PRICE).toFixed(2).replace('.',',')}`;continueBtn.disabled=count===0;}
 continueBtn.addEventListener('click',()=>{chosenEl.innerHTML=[...selected].sort((a,b)=>a-b).map(n=>`<span>${String(n).padStart(3,'0')}</span>`).join('');checkout.classList.remove('hidden');});
