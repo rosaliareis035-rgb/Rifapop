@@ -1,6 +1,6 @@
 const PRICE = 10;
 const TOTAL = 1000;
-const RESERVATION_MINUTES = 30;
+let RESERVATION_MINUTES = 30;
 let WHATSAPP = '5573981602717';
 let PIX = '73981602717';
 
@@ -26,11 +26,22 @@ function addWinnerPanel(){
   panel.innerHTML=`<div class="winner-box"><span class="winner-label">🏆 RESULTADO DO SORTEIO</span><h2 id="winner-title">Resultado ainda não publicado</h2><div id="winner-message" class="winner-message">O resultado será divulgado aqui assim que o sorteio for realizado.</div><div id="winner-number" class="winner-number winner-hidden"></div><span id="winner-date" class="winner-date"></span><button id="winner-share" class="winner-share winner-hidden">📲 Compartilhar resultado</button></div>`;
   const main=document.querySelector('main'); const hero=document.querySelector('.hero');
   if(main&&hero) main.insertBefore(panel,hero.nextSibling); else if(main) main.prepend(panel);
-  document.getElementById('winner-share').onclick=async()=>{const text=document.getElementById('winner-message').textContent+' '+document.getElementById('winner-number').textContent;if(navigator.share){try{await navigator.share({title:'Resultado RifaPop',text,url:location.href})}catch(e){}}else{await navigator.clipboard.writeText(location.href);alert('Link do resultado copiado!')}};
+  document.getElementById('winner-share').onclick=async()=>{const text=document.getElementById('winner-message').textContent+' '+document.getElementById('winner-number').textContent;if(navigator.share){try{await navigator.share({title:'Resultado RifaPop',text,url:location.href})}catch(e){}}else{try{await navigator.clipboard.writeText(location.href);alert('Link do resultado copiado!')}catch(e){alert(location.href)}}};
+}
+
+function renderWinner(w){
+  const title=document.getElementById('winner-title'), message=document.getElementById('winner-message'), number=document.getElementById('winner-number'), date=document.getElementById('winner-date'), share=document.getElementById('winner-share');
+  if(!title)return;
+  if(!w || !w.winner_published){title.textContent='Resultado ainda não publicado';message.textContent='O resultado será divulgado aqui assim que o sorteio for realizado.';number.classList.add('winner-hidden');date.textContent='';share.classList.add('winner-hidden');return;}
+  title.textContent='🎉 Temos um ganhador!';
+  message.textContent=w.winner_name?`Parabéns, ${w.winner_name}!`:'Parabéns ao ganhador!';
+  if(w.winner_number!==null && w.winner_number!==undefined && w.winner_number!==''){number.textContent=`Número sorteado: ${String(w.winner_number).padStart(3,'0')}`;number.classList.remove('winner-hidden')}else number.classList.add('winner-hidden');
+  date.textContent=w.winner_date?`Sorteio realizado em ${w.winner_date}`:'';
+  share.classList.remove('winner-hidden');
 }
 
 async function loadWinner(){
-  try{const r=await fetch('winner.json?v='+Date.now(),{cache:'no-store'});const w=await r.json();if(!w.published)return;document.getElementById('winner-title').textContent='🎉 Temos um ganhador!';document.getElementById('winner-message').textContent=w.name?`Parabéns, ${w.name}!`:'Parabéns ao ganhador!';if(w.number){const n=document.getElementById('winner-number');n.textContent=`Número sorteado: ${w.number}`;n.classList.remove('winner-hidden')}if(w.date)document.getElementById('winner-date').textContent=`Sorteio realizado em ${w.date}`;document.getElementById('winner-share').classList.remove('winner-hidden')}catch(e){console.warn('Resultado ainda não disponível.',e)}
+  try{const {data,error}=await supabaseClient.from('app_settings').select('winner_published,winner_name,winner_number,winner_date').eq('id',true).single();if(error)throw error;renderWinner(data)}catch(e){console.warn('Resultado ainda não disponível.',e)}
 }
 
 function addNumbersLegend(){
@@ -42,22 +53,20 @@ function addNumbersLegend(){
 }
 
 async function releaseExpiredReservations(){
-  try{
-    const {data,error}=await supabaseClient.rpc('release_expired_reservations');
-    if(error) console.warn('Expiração automática ainda não configurada no Supabase.',error);
-    if(data>0) await loadNumbers();
-  }catch(e){console.warn('Não foi possível verificar reservas vencidas.',e)}
+  try{const {data,error}=await supabaseClient.rpc('release_expired_reservations');if(error)throw error;if(Number(data)>0)await loadNumbers();}catch(e){console.warn('Não foi possível verificar reservas vencidas.',e)}
 }
 
 async function init(){
-  addWinnerPanel(); loadWinner(); addNumbersLegend();
+  addWinnerPanel(); addNumbersLegend();
   if (!window.RIFAPOP_SUPABASE_URL || window.RIFAPOP_SUPABASE_URL.includes('COLE_AQUI')) { alert('Configure o Supabase no arquivo supabase-config.js antes de publicar.'); return; }
-  const { data: settings } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers,reservation_minutes').eq('id',true).single();
-  if(settings){ PIX=settings.pix||PIX; WHATSAPP=(settings.whatsapp||WHATSAPP).replace(/\D/g,''); pixKeyEl.textContent=PIX; }
+  const { data: settings, error: settingsError } = await supabaseClient.from('app_settings').select('pix,whatsapp,price,total_numbers,reservation_minutes').eq('id',true).single();
+  if(settingsError) console.warn('Não foi possível carregar as configurações.',settingsError);
+  if(settings){ PIX=settings.pix||PIX; WHATSAPP=(settings.whatsapp||WHATSAPP).replace(/\D/g,''); RESERVATION_MINUTES=Number(settings.reservation_minutes)||30; pixKeyEl.textContent=PIX; }
   await releaseExpiredReservations();
   await loadNumbers();
+  await loadWinner();
   supabaseClient.channel('rifapop-live').on('postgres_changes',{event:'*',schema:'public',table:'rifa_numbers'},()=>loadNumbers()).subscribe();
-  setInterval(async()=>{ await releaseExpiredReservations(); await loadNumbers(); },10000);
+  setInterval(async()=>{ await releaseExpiredReservations(); await loadNumbers(); await loadWinner(); },10000);
 }
 
 async function loadNumbers(){
@@ -82,7 +91,7 @@ function toggle(n,el){ if(selected.has(n)){selected.delete(n);el.classList.remov
 function update(){const count=selected.size;countEl.textContent=count;totalEl.textContent=`R$ ${(count*PRICE).toFixed(2).replace('.',',')}`;continueBtn.disabled=count===0;}
 continueBtn.addEventListener('click',()=>{chosenEl.innerHTML=[...selected].sort((a,b)=>a-b).map(n=>`<span>${String(n).padStart(3,'0')}</span>`).join('');checkout.classList.remove('hidden');});
 document.getElementById('closeCheckout').addEventListener('click',()=>checkout.classList.add('hidden'));
-document.getElementById('copyPix').addEventListener('click',async()=>{await navigator.clipboard.writeText(pixKeyEl.textContent.trim());document.getElementById('copyPix').textContent='Copiado!';setTimeout(()=>document.getElementById('copyPix').textContent='Copiar',1500);});
+document.getElementById('copyPix').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(pixKeyEl.textContent.trim());document.getElementById('copyPix').textContent='Copiado!';setTimeout(()=>document.getElementById('copyPix').textContent='Copiar',1500)}catch(e){alert('Não foi possível copiar automaticamente. Chave PIX: '+pixKeyEl.textContent.trim())}});
 document.getElementById('whatsapp').addEventListener('click',async()=>{
   const name=nameEl.value.trim(), phone=phoneEl.value.trim();
   if(!name||!phone)return alert('Preencha seu nome e WhatsApp.');
