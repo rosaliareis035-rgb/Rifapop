@@ -1,0 +1,32 @@
+name: Usar imagem nítida do prêmio
+on:
+  push:
+    paths:
+      - '.github/workflows/usar-imagem-premio.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trocar imagem inline pela imagem nítida
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s2=re.sub(r'<img src="data:image/[^\"]+"', '<img src="premio-rifapop-site.jpg"', s, count=1)
+          if s2 == s:
+              print('Imagem já está configurada ou não foi encontrada.')
+          else:
+              p.write_text(s2, encoding='utf-8')
+          PY
+      - name: Salvar alteração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || (git commit -m 'Usar imagem nítida do PS5 Slim' && git push)
