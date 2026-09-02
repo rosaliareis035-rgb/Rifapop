@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'assets/rifapop-image-b64/**'
+      - 'premio-rifapop-novo.webp'
       - '.github/workflows/assemble-rifapop-image.yml'
   workflow_dispatch:
 
@@ -17,30 +18,37 @@ jobs:
       - name: Baixar repositório
         uses: actions/checkout@v4
 
-      - name: Montar imagem WebP
+      - name: Montar imagem, se necessário
         shell: bash
         run: |
-          mkdir -p assets/rifapop-image-b64
-          cat assets/rifapop-image-b64/01.txt \
-              assets/rifapop-image-b64/02.txt \
-              assets/rifapop-image-b64/03.txt \
-              assets/rifapop-image-b64/04.txt \
-              assets/rifapop-image-b64/05.txt \
-              assets/rifapop-image-b64/06.txt \
-              assets/rifapop-image-b64/07.txt \
-              assets/rifapop-image-b64/08.txt \
-              assets/rifapop-image-b64/09.txt \
-            | tr -d '\r\n' \
-            | base64 -d > premio-rifapop-novo.webp
-          file premio-rifapop-novo.webp
+          if [ -d assets/rifapop-image-b64 ] && [ -f assets/rifapop-image-b64/01.txt ]; then
+            cat assets/rifapop-image-b64/01.txt \
+                assets/rifapop-image-b64/02.txt \
+                assets/rifapop-image-b64/03.txt \
+                assets/rifapop-image-b64/04.txt \
+                assets/rifapop-image-b64/05.txt \
+                assets/rifapop-image-b64/06.txt \
+                assets/rifapop-image-b64/07.txt \
+                assets/rifapop-image-b64/08.txt \
+                assets/rifapop-image-b64/09.txt \
+              | tr -d '\r\n' \
+              | base64 -d > premio-rifapop-novo.webp
+          fi
           test -s premio-rifapop-novo.webp
 
-      - name: Salvar imagem e limpar partes
+      - name: Criar JPG compatível
+        shell: bash
+        run: |
+          magick premio-rifapop-novo.webp -strip -interlace Plane -sampling-factor 4:4:4 -quality 92 premio-rifapop-novo.jpg
+          file premio-rifapop-novo.jpg
+          test -s premio-rifapop-novo.jpg
+
+      - name: Limpar partes temporárias e salvar
         shell: bash
         run: |
           rm -rf assets/rifapop-image-b64
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add premio-rifapop-novo.webp assets/rifapop-image-b64 || true
-          git commit -m 'Adicionar nova imagem do prêmio RifaPop' || echo 'Nada novo para commitar'
+          git add premio-rifapop-novo.webp premio-rifapop-novo.jpg assets/rifapop-image-b64 || true
+          git commit -m 'Adicionar imagem final do prêmio RifaPop' || echo 'Nada novo para commitar'
           git push
