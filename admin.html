@@ -57,6 +57,21 @@
     <button id="saveSettings" class="primary">Salvar configurações</button>
     <span id="saved" class="saved"></span>
   </section>
+
+  <section class="card settings">
+    <h2>🏆 Resultado do sorteio</h2>
+    <p>Publique aqui o ganhador para aparecer automaticamente no site.</p>
+    <div class="grid">
+      <label>Nome do ganhador<input id="winnerName" placeholder="Nome do ganhador"></label>
+      <label>Número sorteado<input id="winnerNumber" type="number" min="1" max="1000" placeholder="Ex.: 123"></label>
+      <label>Data do sorteio<input id="winnerDate" placeholder="Ex.: 28/08/2026"></label>
+    </div>
+    <div class="actions">
+      <button id="publishWinner" class="primary">🏆 Publicar resultado</button>
+      <button id="hideWinner" class="ghost">Ocultar resultado</button>
+    </div>
+    <span id="winnerSaved" class="saved"></span>
+  </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
