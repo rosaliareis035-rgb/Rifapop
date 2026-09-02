@@ -1,0 +1,1 @@
+A imagem final do prêmio deve ser publicada pelo GitHub Actions a partir do arquivo enviado.
