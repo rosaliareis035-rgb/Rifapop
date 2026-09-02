@@ -36,6 +36,10 @@ create table public.app_settings (
   price numeric(10,2) not null default 10,
   total_numbers integer not null default 1000,
   reservation_minutes integer not null default 30,
+  winner_published boolean not null default false,
+  winner_name text not null default '',
+  winner_number integer null,
+  winner_date text not null default '',
   updated_at timestamptz not null default now()
 );
 insert into public.app_settings(id) values (true);
@@ -101,7 +105,6 @@ $$;
 
 grant execute on function public.reserve_numbers(text,text,integer[]) to anon, authenticated;
 
--- Libera automaticamente reservas vencidas que ainda não foram pagas.
 create or replace function public.release_expired_reservations()
 returns integer
 language plpgsql security definer set search_path = public
@@ -116,13 +119,10 @@ begin
       select b.id from buyers b
       where b.status='reserved' and b.expires_at is not null and b.expires_at <= now()
     );
-
   get diagnostics v_count = row_count;
-
   update buyers
   set status='expired'
   where status='reserved' and expires_at is not null and expires_at <= now();
-
   return v_count;
 end;
 $$;
