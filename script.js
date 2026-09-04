@@ -45,11 +45,9 @@ async function loadWinner(){
 }
 
 function addNumbersLegend(){
-  if(document.getElementById('rifapop-numbers-legend')) return;
-  const legend=document.createElement('div'); legend.id='rifapop-numbers-legend'; legend.className='legend';
-  legend.innerHTML=`<span><i style="background:#151821"></i>Disponível</span><span><i style="background:#8b2cff"></i>Selecionado</span><span><i style="background:#363a45"></i>Já comprado / indisponível</span>`;
-  const numbersSection=document.querySelector('.numbers-section'); const sectionHead=numbersSection?.querySelector('.section-head');
-  if(sectionHead) sectionHead.appendChild(legend); else if(numbersSection) numbersSection.prepend(legend);
+  const legend=document.querySelector('.numbers-section .legend');
+  if(!legend) return;
+  legend.innerHTML=`<span><i class="available"></i>Disponível</span><span><i class="selected"></i>Selecionado</span><span><i class="reserved"></i>Já comprado / indisponível</span>`;
 }
 
 async function releaseExpiredReservations(){
